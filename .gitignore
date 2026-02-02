@@ -1,0 +1,56 @@
+# Node.js
+node_modules/
+frontend/node_modules/
+**/node_modules/
+
+# Next.js
+.next/
+frontend/.next/
+out/
+frontend/out/
+
+# Java/Maven
+target/
+backend/target/
+**/target/
+*.class
+*.jar
+*.war
+*.log
+
+# Build artifacts
+backend/src/main/resources/static/*
+!backend/src/main/resources/static/.gitkeep
+
+# Environment variables
+.env
+.env.local
+.env.*.local
+
+# IDE
+.idea/
+.vscode/
+*.iml
+*.swp
+*.swo
+*~
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Generated files
+*.generated.*
+
+# Catalog pipeline outputs
+catalog_images/
+vector_index/
+catalog_products.json
+catalog_pipeline/.venv/
+
+# Python
+__pycache__/
+*.pyc
+
+# PDFs (keep tracked in /pdfs)
+!pdfs/*.pdf
