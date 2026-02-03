@@ -6,6 +6,13 @@ PDF_VECTOR_PORT="${PDF_VECTOR_PORT:-9100}"
 CATALOG_VECTOR_PORT="${CATALOG_VECTOR_PORT:-9000}"
 CATALOG_ENABLED="${CATALOG_ENABLED:-true}"
 
+if [ -n "${OPENAI_API_KEY:-}" ]; then
+  OPENAI_STATUS="set"
+else
+  OPENAI_STATUS="missing"
+fi
+echo "Startup config: CATALOG_ENABLED=${CATALOG_ENABLED}, OPENAI_API_KEY=${OPENAI_STATUS}"
+
 mkdir -p "${APP_ROOT}/pdfs" "${APP_ROOT}/catalog_images" "${APP_ROOT}/vector_index"
 
 echo "Starting PDF FAISS vector service on port ${PDF_VECTOR_PORT}..."
