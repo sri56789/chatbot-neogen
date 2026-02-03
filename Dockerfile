@@ -26,13 +26,26 @@ RUN mvn clean package -DskipTests
 FROM eclipse-temurin:17-jre-jammy
 WORKDIR /app
 
+# Install Python for FAISS services
+RUN apt-get update \
+    && apt-get install -y --no-install-recommends python3 python3-venv python3-pip \
+    && rm -rf /var/lib/apt/lists/*
+
 # Create pdfs directory and copy PDFs from local pdfs folder
 RUN mkdir -p /app/pdfs
 # Copy PDFs into the container (PDFs must be in pdfs/ folder before building)
 COPY pdfs/ /app/pdfs/
 
+# Copy catalog pipeline and install Python deps
+COPY catalog_pipeline/ /app/catalog_pipeline/
+RUN python3 -m pip install --no-cache-dir -r /app/catalog_pipeline/requirements.txt
+
 # Copy the built JAR
 COPY --from=backend-build /app/target/*.jar app.jar
+
+# Start script for services + app
+COPY start.sh /app/start.sh
+RUN chmod +x /app/start.sh
 
 # Expose port
 EXPOSE 8080
@@ -40,5 +53,5 @@ EXPOSE 8080
 # Set memory limits
 ENV JAVA_OPTS="-Xmx1g -Xms512m"
 
-# Run the application
-ENTRYPOINT ["sh", "-c", "java $JAVA_OPTS -jar app.jar"]
+# Run the application and vector services
+ENTRYPOINT ["/app/start.sh"]
