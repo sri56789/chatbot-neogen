@@ -35,7 +35,7 @@ PY
 
 if [ "${CATALOG_ENABLED}" = "true" ]; then
   if [ -z "${OPENAI_API_KEY}" ]; then
-    echo "ERROR: OPENAI_API_KEY is required for catalog pipeline."
+    echo "ERROR: OPENAI_API_KEY is required. Refusing to start services."
     exit 1
   fi
 
@@ -44,21 +44,33 @@ if [ "${CATALOG_ENABLED}" = "true" ]; then
     --pdf-dir "${APP_ROOT}/pdfs" \
     --images-dir "${APP_ROOT}/catalog_images" \
     --products "${APP_ROOT}/catalog_products.json" \
-    --index-dir "${APP_ROOT}/vector_index"
+    --index-dir "${APP_ROOT}/vector_index" &
+  CATALOG_PIPELINE_PID=$!
 
-  export CATALOG_INDEX_DIR="${APP_ROOT}/vector_index"
-  echo "Starting catalog vector service on port ${CATALOG_VECTOR_PORT}..."
-  python3 -m uvicorn catalog_pipeline.vector_service:app \
-    --app-dir "${APP_ROOT}" \
-    --host 0.0.0.0 \
-    --port "${CATALOG_VECTOR_PORT}" \
-    --access-log false &
-  CATALOG_VECTOR_PID=$!
+  (
+    while kill -0 "${CATALOG_PIPELINE_PID}" 2>/dev/null; do
+      sleep 1
+    done
+    export CATALOG_INDEX_DIR="${APP_ROOT}/vector_index"
+    echo "Starting catalog vector service on port ${CATALOG_VECTOR_PORT}..."
+    python3 -m uvicorn catalog_pipeline.vector_service:app \
+      --app-dir "${APP_ROOT}" \
+      --host 0.0.0.0 \
+      --port "${CATALOG_VECTOR_PORT}" \
+      --access-log false &
+    echo $! > /tmp/catalog_vector.pid
+  ) &
 fi
 
 cleanup() {
-  if [ -n "${CATALOG_VECTOR_PID:-}" ]; then
-    kill "${CATALOG_VECTOR_PID}" 2>/dev/null || true
+  if [ -n "${CATALOG_PIPELINE_PID:-}" ]; then
+    kill "${CATALOG_PIPELINE_PID}" 2>/dev/null || true
+  fi
+  if [ -f /tmp/catalog_vector.pid ]; then
+    CATALOG_VECTOR_PID=$(cat /tmp/catalog_vector.pid 2>/dev/null || true)
+    if [ -n "${CATALOG_VECTOR_PID}" ]; then
+      kill "${CATALOG_VECTOR_PID}" 2>/dev/null || true
+    fi
   fi
   if [ -n "${PDF_VECTOR_PID:-}" ]; then
     kill "${PDF_VECTOR_PID}" 2>/dev/null || true
@@ -67,4 +79,7 @@ cleanup() {
 trap cleanup EXIT
 
 echo "Starting Spring Boot app..."
-exec sh -c "java ${JAVA_OPTS:-} -jar ${APP_ROOT}/app.jar"
+sh -c "java ${JAVA_OPTS:-} -jar ${APP_ROOT}/app.jar" &
+JAVA_PID=$!
+
+wait "${JAVA_PID}"
