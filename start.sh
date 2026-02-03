@@ -5,13 +5,14 @@ APP_ROOT=/app
 PDF_VECTOR_PORT="${PDF_VECTOR_PORT:-9100}"
 CATALOG_VECTOR_PORT="${CATALOG_VECTOR_PORT:-9000}"
 CATALOG_ENABLED="${CATALOG_ENABLED:-true}"
+APP_PORT="${PORT:-8080}"
 
 if [ -n "${OPENAI_API_KEY:-}" ]; then
   OPENAI_STATUS="set"
 else
   OPENAI_STATUS="missing"
 fi
-echo "Startup config: CATALOG_ENABLED=${CATALOG_ENABLED}, OPENAI_API_KEY=${OPENAI_STATUS}"
+echo "Startup config: CATALOG_ENABLED=${CATALOG_ENABLED}, OPENAI_API_KEY=${OPENAI_STATUS}, APP_PORT=${APP_PORT}"
 
 mkdir -p "${APP_ROOT}/pdfs" "${APP_ROOT}/catalog_images" "${APP_ROOT}/vector_index"
 
@@ -42,9 +43,12 @@ PY
 
 if [ "${CATALOG_ENABLED}" = "true" ]; then
   if [ -z "${OPENAI_API_KEY}" ]; then
-    echo "ERROR: OPENAI_API_KEY is required. Refusing to start services."
-    exit 1
+    echo "WARN: OPENAI_API_KEY missing; disabling catalog pipeline."
+    CATALOG_ENABLED="false"
   fi
+fi
+
+if [ "${CATALOG_ENABLED}" = "true" ]; then
 
   echo "Running catalog pipeline to build FAISS index..."
   python3 "${APP_ROOT}/catalog_pipeline/run_pipeline.py" \
@@ -86,7 +90,7 @@ cleanup() {
 trap cleanup EXIT
 
 echo "Starting Spring Boot app..."
-sh -c "java ${JAVA_OPTS:-} -jar ${APP_ROOT}/app.jar" &
+sh -c "java ${JAVA_OPTS:-} -Dserver.port=${APP_PORT} -jar ${APP_ROOT}/app.jar" &
 JAVA_PID=$!
 
 wait "${JAVA_PID}"
